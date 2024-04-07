@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flip_card/flip_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_memory_game/model/data.dart';
@@ -54,6 +55,13 @@ class _MyFlipCardGameState extends State<MyFlipCardGame> {
   }
 
   void initializeGameData() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      Navigator.pushReplacementNamed(context, '/login');
+    } else {
+      print('User email: ${user.email}');
+    }
+
     _data = createShuffledListFromImageSource();
     _cardFlips = getInitialItemStateList();
     _cardStateKeys = createFlipCardStateKeysList();
@@ -90,10 +98,10 @@ class _MyFlipCardGameState extends State<MyFlipCardGame> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context).textTheme;
-    final Map<String, dynamic>? userData = context.read<UserData>().value;
+    // final Map<String, dynamic>? userData = context.read<UserData>().value;
     // var level = ;
     // print(userData.userData?.level);
-    final level = userData?['level'] ?? 1;
+    final level = 1;
 
     return _isFinished
         ? GameOverScreen(

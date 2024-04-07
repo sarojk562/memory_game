@@ -1,14 +1,13 @@
+// ignore_for_file: use_build_context_synchronously
+import 'dart:developer';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_memory_game/providers/user_data.dart';
-import 'package:flutter_memory_game/services/auth.dart';
-import 'package:flutter_memory_game/views/game_screen.dart';
 import 'package:flutter_memory_game/views/start_game_screen.dart';
 import 'package:provider/provider.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
-  // final PageController controller;
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
@@ -21,6 +20,26 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
+    checkLoggedIn();
+  }
+
+  Future<void> checkLoggedIn() async {
+    final dataProvider = Provider.of<UserData>(context, listen: false);
+    FirebaseAuth.instance.userChanges().listen((User? user) {
+      if (user == null) {
+        log('User is currently signed out!');
+        dataProvider.removeUser();
+      } else {
+        log('User is signed in!');
+        dataProvider.addUser(user);
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const StartGameScreen(),
+          ),
+        );
+      }
+    });
   }
 
   bool _validateEmail(String email) {
@@ -42,30 +61,28 @@ class _LoginScreenState extends State<LoginScreen> {
         setState(() {
           _isLoading = true;
         });
-        final credentials =
-            await FirebaseAuth.instance.signInWithEmailAndPassword(
+        await FirebaseAuth.instance.signInWithEmailAndPassword(
           email: _emailController.text,
           password: _passController.text,
         );
-        await handleGetUserData();
       } on FirebaseAuthException catch (e) {
-        if (e.code == 'user-not-found' || e.code == 'wrong-password') {
+        if (e.code == 'user-not-found') {
           // Handle invalid email or password
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Invalid email or password'),
+              content: Text('No User Found for the given email!'),
             ),
           );
-        } else {
+        } else if (e.code == 'wrong-password') {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('An error occurred. Please try again.'),
+              content: Text('Wrong password provided for that user.'),
             ),
           );
         }
       } catch (e) {
         // Handle other exceptions
-        print('Unexpected error: $e');
+        log('Unexpected error: $e');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('An unexpected error occurred. Please try again.'),
@@ -78,32 +95,8 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Alert: Please enter the required fields')),
-      );
-    }
-  }
-
-  Future<void> handleGetUserData() async {
-    final username = _emailController.text;
-    final password = _passController.text;
-
-    try {
-      final response = await loginUser(username, password);
-      // Navigate to next screen or show success message
-      setState(() {
-        _isLoading = false;
-      });
-      Provider.of<UserData>(context, listen: false).setUserData(response!);
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => const StartGameScreen(),
-        ),
-      );
-    } on Exception catch (error) {
-      // Show error message to user
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $error')),
+        const SnackBar(
+            content: Text('Alert: Please enter the required fields')),
       );
     }
   }
@@ -144,7 +137,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     const Text(
-                      'Memory Game',
+                      'NAU: Memory Match Game',
                       style: TextStyle(
                         color: Color(0xFF755DDE),
                         fontSize: 27,

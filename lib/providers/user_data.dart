@@ -1,11 +1,10 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 class UserData with ChangeNotifier {
-  Map<String, dynamic>? userData;
+  User? userData;
 
-  Map<String, dynamic>? get value => userData;
-
-  setUserData(Map<String, dynamic> data) {
+  addUser(User data) {
     userData = data;
     notifyListeners();
   }
