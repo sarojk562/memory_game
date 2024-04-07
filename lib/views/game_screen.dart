@@ -1,10 +1,13 @@
 import 'dart:async';
+import 'dart:developer';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flip_card/flip_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_memory_game/model/data.dart';
 import 'package:flutter_memory_game/providers/user_data.dart';
+import 'package:flutter_memory_game/services/get_user_data.dart';
 import 'package:flutter_memory_game/views/game_over_screen.dart';
+import 'package:flutter_memory_game/views/login_screen.dart';
 import 'package:provider/provider.dart';
 
 class MyFlipCardGame extends StatefulWidget {
@@ -21,13 +24,48 @@ class _MyFlipCardGameState extends State<MyFlipCardGame> {
   bool _flip = false;
   bool _start = false;
   bool _wait = false;
-  late bool _isFinished;
-  late Timer _timer;
-  late Timer _durationTimer;
-  late int _left;
-  late List _data;
-  late List<bool> _cardFlips;
-  late List<GlobalKey<FlipCardState>> _cardStateKeys;
+  bool _isFinished = false;
+  Timer _timer = Timer(Duration.zero, () {});
+  Timer _durationTimer = Timer(Duration.zero, () {});
+  int _left = 0;
+  List _data = [];
+  List<bool> _cardFlips = [];
+  List<GlobalKey<FlipCardState>> _cardStateKeys = [];
+
+  @override
+  void initState() {
+    super.initState();
+    fetchUserDataAndInitializeGame();
+  }
+
+  Future<void> fetchUserDataAndInitializeGame() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const LoginScreen(),
+        ),
+      );
+      return;
+    } else if (user.email != null && user.email!.isNotEmpty) {
+      final userData = await getUserData(user.email!);
+      log('Fetched userData: $userData');
+      initializeGameData(userData); // Now passing fetched userData
+      startTimer();
+      startDuration();
+      startGameAfterDelay();
+    }
+  }
+
+  void initializeGameData(Map<String, dynamic>? userData) {
+    _data = createShuffledListFromImageSource();
+    _cardFlips = getInitialItemStateList();
+    _cardStateKeys = createFlipCardStateKeysList();
+    _time = 3;
+    _left = (_data.length ~/ 2);
+    _isFinished = false;
+  }
 
   void startTimer() {
     _timer = Timer.periodic(const Duration(seconds: 1), (t) {
@@ -54,36 +92,11 @@ class _MyFlipCardGameState extends State<MyFlipCardGame> {
     });
   }
 
-  void initializeGameData() {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      Navigator.pushReplacementNamed(context, '/login');
-    } else {
-      print('User email: ${user.email}');
-    }
-
-    _data = createShuffledListFromImageSource();
-    _cardFlips = getInitialItemStateList();
-    _cardStateKeys = createFlipCardStateKeysList();
-    _time = 3;
-    _left = (_data.length ~/ 2);
-    _isFinished = false;
-  }
-
-  @override
-  void initState() {
-    startTimer();
-    startDuration();
-    startGameAfterDelay();
-    initializeGameData();
-    super.initState();
-  }
-
   @override
   void dispose() {
-    super.dispose();
     _timer.cancel();
     _durationTimer.cancel();
+    super.dispose();
   }
 
   Widget getItem(int index) {
@@ -98,10 +111,7 @@ class _MyFlipCardGameState extends State<MyFlipCardGame> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context).textTheme;
-    // final Map<String, dynamic>? userData = context.read<UserData>().value;
-    // var level = ;
-    // print(userData.userData?.level);
-    final level = 1;
+    final level = 1; // Consider dynamic level based on userData if needed
 
     return _isFinished
         ? GameOverScreen(
@@ -115,7 +125,7 @@ class _MyFlipCardGameState extends State<MyFlipCardGame> {
                   children: <Widget>[
                     RichText(
                       text: TextSpan(
-                        text: "level: $level",
+                        text: "Level: $level",
                         style: theme.bodyLarge,
                       ),
                     ),
@@ -185,12 +195,12 @@ class _MyFlipCardGameState extends State<MyFlipCardGame> {
                                     } else {
                                       _cardFlips[_previousIndex] = false;
                                       _cardFlips[index] = false;
-                                      debugPrint("$_cardFlips");
+                                      log("$_cardFlips");
                                       setState(() {
                                         _left -= 1;
                                       });
                                       if (_cardFlips.every((t) => t == false)) {
-                                        debugPrint("Won");
+                                        log("Won!");
                                         Future.delayed(
                                             const Duration(milliseconds: 160),
                                             () {
