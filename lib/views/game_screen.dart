@@ -4,11 +4,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flip_card/flip_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_memory_game/model/data.dart';
-import 'package:flutter_memory_game/providers/user_data.dart';
 import 'package:flutter_memory_game/services/get_user_data.dart';
 import 'package:flutter_memory_game/views/game_over_screen.dart';
 import 'package:flutter_memory_game/views/login_screen.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_memory_game/views/start_game_screen.dart';
 
 class MyFlipCardGame extends StatefulWidget {
   const MyFlipCardGame({super.key});
@@ -28,6 +27,8 @@ class _MyFlipCardGameState extends State<MyFlipCardGame> {
   Timer _timer = Timer(Duration.zero, () {});
   Timer _durationTimer = Timer(Duration.zero, () {});
   int _left = 0;
+  User? user;
+  Map<String, dynamic>? userData = {};
   List _data = [];
   List<bool> _cardFlips = [];
   List<GlobalKey<FlipCardState>> _cardStateKeys = [];
@@ -39,7 +40,7 @@ class _MyFlipCardGameState extends State<MyFlipCardGame> {
   }
 
   Future<void> fetchUserDataAndInitializeGame() async {
-    final user = FirebaseAuth.instance.currentUser;
+    user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       Navigator.pushReplacement(
         context,
@@ -48,8 +49,11 @@ class _MyFlipCardGameState extends State<MyFlipCardGame> {
         ),
       );
       return;
-    } else if (user.email != null && user.email!.isNotEmpty) {
-      final userData = await getUserData(user.email!);
+    } else if (user != null && user?.email != null) {
+      final userEmail = user?.email;
+      if (userEmail != null && userEmail.isNotEmpty) {
+        userData = await getUserData(userEmail);
+      }
       log('Fetched userData: $userData');
       initializeGameData(userData); // Now passing fetched userData
       startTimer();
@@ -59,7 +63,42 @@ class _MyFlipCardGameState extends State<MyFlipCardGame> {
   }
 
   void initializeGameData(Map<String, dynamic>? userData) {
-    _data = createShuffledListFromImageSource();
+    if (userData != null) {
+      log('${userData["user_level"]}');
+      log('${userData["day"]}');
+      log('${userData["hasPlayedToday"]}');
+
+      switch (userData['user_level']) {
+        case 1:
+          // Code for level 1
+          imagePath = levelOneImagePath;
+          _data = userData["hasPlayedToday"]
+              ? createShuffledListFromImageSource()
+              : level1Images[userData['day'] % 7];
+          break;
+        case 2:
+          // Code for level 2
+          imagePath = levelTwoImagePath;
+          _data = userData["hasPlayedToday"]
+              ? createShuffledListFromImageSource()
+              : level2Images[userData['day'] % 7];
+          break;
+        case 3:
+          // Code for level 3
+          imagePath = levelThreeImagePath;
+          _data = userData["hasPlayedToday"]
+              ? createShuffledListFromImageSource()
+              : level3Images[userData['day'] % 7];
+          break;
+        default:
+          // Code for other levels
+          break;
+      }
+    } else {
+      imagePath = levelOneImagePath;
+      _data = createShuffledListFromImageSource();
+    }
+
     _cardFlips = getInitialItemStateList();
     _cardStateKeys = createFlipCardStateKeysList();
     _time = 3;
@@ -111,12 +150,12 @@ class _MyFlipCardGameState extends State<MyFlipCardGame> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context).textTheme;
-    final level = 1; // Consider dynamic level based on userData if needed
 
     return _isFinished
         ? GameOverScreen(
             duration: gameDuration,
-          )
+            userLevel: userData?["user_level"],
+            userEmail: user?.email)
         : Scaffold(
             body: SafeArea(
               child: SingleChildScrollView(
@@ -125,7 +164,7 @@ class _MyFlipCardGameState extends State<MyFlipCardGame> {
                   children: <Widget>[
                     RichText(
                       text: TextSpan(
-                        text: "Level: $level",
+                        text: "Level: ${userData?["user_level"]}",
                         style: theme.bodyLarge,
                       ),
                     ),
@@ -234,6 +273,20 @@ class _MyFlipCardGameState extends State<MyFlipCardGame> {
                           : getItem(index),
                       itemCount: _data.length,
                     ),
+                    const SizedBox(
+                      height: 25,
+                    ),
+                    ElevatedButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const StartGameScreen(),
+                          ),
+                        );
+                      },
+                      child: const Text("Close Game"),
+                    )
                   ],
                 ),
               ),

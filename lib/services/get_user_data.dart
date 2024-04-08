@@ -11,8 +11,8 @@ Future<Map<String, dynamic>?> getUserData(String username) async {
     );
 
     if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      return data;
+      final Map<String, dynamic> data = json.decode(response.body);
+      return data['data'];
     } else {
       // Handle error based on status code or response message
       return null;
